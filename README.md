@@ -19,7 +19,7 @@ no problem getting pointer control.
 There is a function called win that will mprotect the shellcode page as executable then jmp into it. Cleary this is
 the final step once we have initalized out shellcode properly.
 
-![alt text](win)
+![alt text](./win.png)
 
 Only having two dwords for a rop chain is not a lot to work with. We can always use our first dword for one gadget or function, then
 our second for the address of the tryme function. This will allow us to call as many arbitrary functions as we need.
