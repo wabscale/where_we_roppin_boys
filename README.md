@@ -6,12 +6,20 @@
 ## Overview
 
 The rop program we are presented with is quite simple. It runs the welcome function, then the tryme function.
-The welcome function mmaps a page with read write into a global variable called shellcode. The tryme function
-then has a trivial buffer overflow. We can overwrite the eip, and one more dword so there is no problem getting
-pointer control. 
+
+The welcome function mmaps a page with read write into a global variable called shellcode. 
+
+![alt text](./welcome.png)
+
+The tryme function then has a trivial buffer overflow. We can overwrite the eip, and one more dword so there is 
+no problem getting pointer control. 
+
+![alt text](./tryme.png)
 
 There is a function called win that will mprotect the shellcode page as executable then jmp into it. Cleary this is
 the final step once we have initalized out shellcode properly.
+
+![alt text](win)
 
 Only having two dwords for a rop chain is not a lot to work with. We can always use our first dword for one gadget or function, then
 our second for the address of the tryme function. This will allow us to call as many arbitrary functions as we need.
